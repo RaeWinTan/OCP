@@ -1,4 +1,4 @@
-from primitives.primitives import Permutation, Block_cipher
+from primitives.primitives import Layered_Function, Permutation, Block_cipher
 from operators.Sbox import AES_Sbox
 from operators.boolean_operators import XOR
 import variables.variables as var
@@ -92,7 +92,10 @@ class AES_block_cipher(Block_cipher):
         S = self.functions["PERMUTATION"]
         KS = self.functions["KEY_SCHEDULE"]
         SK = self.functions["SUBKEYS"]
-
+        self.functions["TTABLE"] = Layered_Function("PERMUTATION", 'tt', 1, 1, 16, 0, 8)
+        TT = self.functions["TTABLE"]
+        self.functions_implementation_order = ["SUBKEYS", "KEY_SCHEDULE", "TTABLE","PERMUTATION"]
+        self.functions_display_order = ["PERMUTATION", "KEY_SCHEDULE", "TTABLE", "SUBKEYS"]
         constant_table = self.gen_rounds_constant_table()
         matrix = [[2,3,1,1], [1,2,3,1], [1,1,2,3], [3,1,1,2]]
         matrix_index = [[0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15]]
@@ -105,7 +108,7 @@ class AES_block_cipher(Block_cipher):
                 elif k_bitsize==192: extracted_bits = KS.vars[1+int(i/3)*2][0][0:16] if i%3 == 1 else (KS.vars[1+int(i/3)*2][0][16:24] + KS.vars[2+int(i/3)*2][0][0:8]) if i%3 == 2 else KS.vars[2+int((i-1)/3)*2][0][8:24]
                 elif k_bitsize==256: extracted_bits = KS.vars[int((i+1)/2)][0] if i%2 != 0 else KS.vars[int((i+1)/2)][0][16:32]
                 SK.ExtractionLayer("SK_EX", i, 0, [j for j in range(16)], extracted_bits)
-
+            TT.ExtractionLayer("TT_EX", 1, 0, list(range(16)), S.vars[1][0])
             # key schedule
             for i in range(1,k_nbr_rounds):
                 KS.PermutationLayer("K_P", i, 0, k_perm) # Permutation layer

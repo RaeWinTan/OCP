@@ -202,6 +202,7 @@ class Layered_Function:
     def ExtractionLayer(self, name, crt_round, crt_layer, extraction_indexes, external_variable):
         for j, indexes in enumerate(extraction_indexes):
             in_var, out_var = external_variable[indexes], self.vars[crt_round][crt_layer+1][j]
+            if name=="TT_EX": print(op.Equal([in_var], [out_var], simple_connect=False, ID=generateID(name + "_EQ",crt_round,crt_layer+1,j)))
             self.constraints[crt_round][crt_layer].append(op.Equal([in_var], [out_var], simple_connect=False, ID=generateID(name + "_EQ",crt_round,crt_layer+1,j)))
 
     # apply a layer "name" of an AddRoundKeyLayer addition, at the round "crt_round", at the layer "crt_layer", with the adding operator "my_operator". Only the positions where mask=1 will have the AddRoundKey applied, the rest being just identity
