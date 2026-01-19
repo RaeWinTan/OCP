@@ -609,6 +609,74 @@ class TTable(Sbox):
         else:
             raise Exception("TO BE DONE LATER")
         return model_list    
+
+    def generate_implementation(self, implementation_type='python', unroll=False):
+        #differ greatly from parent class here we enforce strictly 2d array in inputs
+        #we will be taking in a 2d list of vinput
+        if implementation_type == 'python': 
+            name = self.table_name
+            #str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + ']'
+            return ['[' + ','.join([self.get_var_ID('out', i, unroll) for i in range(len(self.output_vars))]) + "] = " + "int("+'^'.join([ name+f"[{i}]"+"["+self.get_var_ID('in', i, unroll)+"]"  for i in range(len(self.input_vars))])+')'+ ".to_bytes(4, 'big')" ] 
+        elif implementation_type == 'c': 
+            raise Exception(str(self.__class__.__name__) + ": NOT SUPPORTED YET LATER DO '" + implementation_type + "'")
+        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+
+    def computeDDT(self): # Compute the differential Distribution Table (DDT) of the Sbox
+        ddt = [[0]*(2**self.output_bitsize) for _ in range(2**self.input_bitsize)] 
+        return ddt
+
+    def computeLAT(self): # Compute the Linear Approximation Table (LAT) of the S-box.
+        lat = [[0] * 2**self.output_bitsize for _ in range(2**self.input_bitsize)]
+        return lat 
+
+    def linearDistributionTable(self):
+        # storing the correlation (correlation = bias * 2)
+        input_size = self.input_bitsize
+        output_size = self.output_bitsize
+        ldt = [[0 for i in range(2 ** output_size)] for j in range(2 ** input_size)]
+        return ldt
+
+    def differential_branch_number(self): # Return differential branch number of the S-Box.
+        return 0
+
+
+    def is_bijective(self): # Check if the length of the set of s_box is equal to the length of s_box. The set will contain only unique elements
+        return 0 
+        #return len(set(self.table)) == len(self.table) and all(i in self.table for i in range(len(self.table)))
+
+    def get_header_ID(self): 
+        return [self.table_name, self.model_version, self.input_bitsize, self.output_bitsize, self.table]
+class TTable(Sbox):
+    def __init__(self, input_vars, output_vars,input_bitsize, output_bitsize, mc, sbox,table_name,ID = None):
+        super().__init__(input_vars, output_vars, input_bitsize, output_bitsize, ID = ID)
+        self.mc = mc.copy()
+        self.sbox = sbox.copy()
+        self.table_name = table_name
+
+    def generate_implementation_header(self, implementation_type='python'):
+        from math import sqrt
+        n = int(sqrt(len(self.mc)))
+        self.table = generate_ttable(self.mc, self.sbox,n)
+        if implementation_type == 'python': 
+            return [str(self.table_name) + ' = ' + str(self.table)]       
+        elif implementation_type == 'c': 
+            return None
+            if self.input_bitsize <= 8: 
+                if isinstance(self.input_vars[0], list): return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint8_t ' + 'x;'] + ['uint8_t ' + 'y;']
+                else: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
+            else: 
+                if isinstance(self.input_vars[0], list): return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint32_t ' + 'x;'] + ['uint32_t ' + 'y;']
+                else: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
+        else: return None
+
+    def generate_implementation_header_unique(self, implementation_type='python'):
+        #the input var is diff
+        if implementation_type == 'python': 
+            model_list = ["#TTable generation function", \
+                          "def GMUL(a, b, p, d):\n\tresult = 0\n\twhile b > 0:\n\t\tif b & 1:\n\t\t\tresult ^= a\n\t\ta <<= 1\n\t\tif a & (1 << d):\n\t\t\ta ^= p\n\t\tb >>= 1\n\treturn result & ((1 << d) - 1)\n\n"]
+        else:
+            raise Exception("TO BE DONE LATER")
+        return model_list    
     """
     based on the layer, the implementaiton wil lbe a littple different 
     some time return input ^ tlu[somevalue]
