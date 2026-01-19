@@ -120,16 +120,7 @@ if __name__ == "__main__":
     # import primitives.speck as speck
     # cipher = speck.SPECK_PERMUTATION(version=32)
     # cipher = speck.SPECK_BLOCKCIPHER(version=[32,64])
-    """
-    import primitives.simon as simon
-    cipher = simon.SIMON_BLOCKCIPHER(version=[32,64])
-     
-    test_all_implementations(cipher)
-    test_visualisation(cipher)
-    test_diff_attack_milp(cipher)
-    test_diff_attack_sat(cipher)
     # cipher = speck.SPECK_BLOCKCIPHER(r=6, version=[32,64])
-"""
     import primitives.simon as simon
     cipher = simon.SIMON_BLOCKCIPHER(r=12, version=[32,64])
 
@@ -138,3 +129,4 @@ if __name__ == "__main__":
     test_visualisation(cipher)
     test_diff_attack_milp(cipher)
     #test_diff_attack_sat(cipher)
+    
