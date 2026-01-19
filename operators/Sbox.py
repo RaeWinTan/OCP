@@ -5,6 +5,7 @@ import time
 import copy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from operators.operators import Operator, RaiseExceptionVersionNotExisting
+from operators.table_generator.t_table import generate_ttable
 from tools.minimize_logic import ttb_to_ineq_logic
 from tools.polyhedron import ttb_to_ineq_convex_hull
 from tools.inequality import inequality_to_constraint_sat, inequality_to_constraint_milp
@@ -577,6 +578,74 @@ class Sbox(Operator):  # Generic operator assigning a Sbox relationship between 
             return pr_variables, objective_fun
         return [], ""
 
+class TTable(Sbox):
+    def __init__(self, input_vars, output_vars,input_bitsize, output_bitsize, mc, sbox,table_name,ID = None):
+        super().__init__(input_vars, output_vars, input_bitsize, output_bitsize, ID = ID)
+        self.mc = mc.copy()
+        self.sbox = sbox.copy()
+        self.table_name = table_name
+
+    def generate_implementation_header(self, implementation_type='python'):
+        from math import sqrt
+        n = int(sqrt(len(self.mc)))
+        self.table = generate_ttable(self.mc, self.sbox,n)
+        if implementation_type == 'python': 
+            return [str(self.table_name) + ' = ' + str(self.table)]       
+        elif implementation_type == 'c': 
+            return None
+            if self.input_bitsize <= 8: 
+                if isinstance(self.input_vars[0], list): return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint8_t ' + 'x;'] + ['uint8_t ' + 'y;']
+                else: return ['uint8_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
+            else: 
+                if isinstance(self.input_vars[0], list): return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};'] + ['uint32_t ' + 'x;'] + ['uint32_t ' + 'y;']
+                else: return ['uint32_t ' + str(self.__class__.__name__) + '[' + str(2**self.input_bitsize) + '] = {' + str(self.table)[1:-1] + '};']
+        else: return None
+
+    def generate_implementation_header_unique(self, implementation_type='python'):
+        #the input var is diff
+        if implementation_type == 'python': 
+            model_list = ["#TTable generation function", \
+                          "def GMUL(a, b, p, d):\n\tresult = 0\n\twhile b > 0:\n\t\tif b & 1:\n\t\t\tresult ^= a\n\t\ta <<= 1\n\t\tif a & (1 << d):\n\t\t\ta ^= p\n\t\tb >>= 1\n\treturn result & ((1 << d) - 1)\n\n"]
+        else:
+            raise Exception("TO BE DONE LATER")
+        return model_list    
+
+    def generate_implementation(self, implementation_type='python', unroll=False):
+        #differ greatly from parent class here we enforce strictly 2d array in inputs
+        #we will be taking in a 2d list of vinput
+        if implementation_type == 'python': 
+            name = self.table_name
+            #str(self.__class__.__name__) + '[' + self.get_var_ID('in', 0, unroll) + ']'
+            return ['[' + ','.join([self.get_var_ID('out', i, unroll) for i in range(len(self.output_vars))]) + "] = " + "int("+'^'.join([ name+f"[{i}]"+"["+self.get_var_ID('in', i, unroll)+"]"  for i in range(len(self.input_vars))])+')'+ ".to_bytes(4, 'big')" ] 
+        elif implementation_type == 'c': 
+            raise Exception(str(self.__class__.__name__) + ": NOT SUPPORTED YET LATER DO '" + implementation_type + "'")
+        else: raise Exception(str(self.__class__.__name__) + ": unknown implementation type '" + implementation_type + "'")
+
+    def computeDDT(self): # Compute the differential Distribution Table (DDT) of the Sbox
+        ddt = [[0]*(2**self.output_bitsize) for _ in range(2**self.input_bitsize)] 
+        return ddt
+
+    def computeLAT(self): # Compute the Linear Approximation Table (LAT) of the S-box.
+        lat = [[0] * 2**self.output_bitsize for _ in range(2**self.input_bitsize)]
+        return lat 
+
+    def linearDistributionTable(self):
+        # storing the correlation (correlation = bias * 2)
+        input_size = self.input_bitsize
+        output_size = self.output_bitsize
+        ldt = [[0 for i in range(2 ** output_size)] for j in range(2 ** input_size)]
+        return ldt
+
+    def differential_branch_number(self): # Return differential branch number of the S-Box.
+        return 0
+
+
+    def is_bijective(self): # Check if the length of the set of s_box is equal to the length of s_box. The set will contain only unique elements
+        return 0 
+        #return len(set(self.table)) == len(self.table) and all(i in self.table for i in range(len(self.table)))
+
+    def get_header_ID(self): 
+        return [self.table_name, self.model_version, self.input_bitsize, self.output_bitsize, self.table]
 
 # ---------------- Cipher Sbox ---------------- #
 class Skinny_4bit_Sbox(Sbox):         # Operator of the Skinny 4-bit Sbox
@@ -638,9 +707,7 @@ class ASCON_Sbox(Sbox):             # Operator of the ASCON 5-bit Sbox
 
 
 class AES_Sbox(Sbox):               # Operator of the AES 8-bit Sbox
-    def __init__(self, input_vars, output_vars, ID = None):
-        super().__init__(input_vars, output_vars, 8, 8, ID = ID)
-        self.table = [0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
+    table = [0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
             0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
             0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
             0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75,
@@ -656,7 +723,7 @@ class AES_Sbox(Sbox):               # Operator of the AES 8-bit Sbox
             0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
             0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
             0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16]
-        self.table_inv = [0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB,
+    table_inv = [0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB,
             0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB,
             0x54, 0x7B, 0x94, 0x32, 0xA6, 0xC2, 0x23, 0x3D, 0xEE, 0x4C, 0x95, 0x0B, 0x42, 0xFA, 0xC3, 0x4E,
             0x08, 0x2E, 0xA1, 0x66, 0x28, 0xD9, 0x24, 0xB2, 0x76, 0x5B, 0xA2, 0x49, 0x6D, 0x8B, 0xD1, 0x25,
@@ -672,6 +739,10 @@ class AES_Sbox(Sbox):               # Operator of the AES 8-bit Sbox
             0x60, 0x51, 0x7F, 0xA9, 0x19, 0xB5, 0x4A, 0x0D, 0x2D, 0xE5, 0x7A, 0x9F, 0x93, 0xC9, 0x9C, 0xEF,
             0xA0, 0xE0, 0x3B, 0x4D, 0xAE, 0x2A, 0xF5, 0xB0, 0xC8, 0xEB, 0xBB, 0x3C, 0x83, 0x53, 0x99, 0x61,
             0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D]
+    def __init__(self, input_vars, output_vars, ID = None):
+        super().__init__(input_vars, output_vars, 8, 8, ID = ID)
+        self.table = type(self).table
+        self.table_inv = type(self).table
 
 
 class TWINE_Sbox(Sbox):             # Operator of the TWINE 4-bit Sbox

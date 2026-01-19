@@ -15,6 +15,12 @@ def gmul(a,b):
         b >>= 1
     return p
 
+def permute(arr, prr):
+    return [arr[p] for p in prr]
+def flatten(arr):
+    rtn = [] 
+    for r in arr: rtn.extend(r)
+    return rtn
 def transpose(arr, n):
     assert len(arr)==n*n
     for r in range(n):

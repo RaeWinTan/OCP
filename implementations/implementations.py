@@ -1,10 +1,14 @@
 import os, os.path
 import subprocess
 import ctypes
+from typing import List
 import numpy as np
 import importlib
 from contextlib import redirect_stdout
 import shutil
+from primitives.primitives import Layered_Function,Layered_Function_Ttable
+from operators.Sbox import TTable
+from operators.table_generator.t_table import permute, flatten
 
 # function to check if a C compiler is available
 def is_c_compiler_available():
@@ -40,8 +44,63 @@ def get_var_def_c(word_bitsize):
     elif word_bitsize <= 64: return 'uint64_t'
     else: return 'uint128_t'
 
+"""
+Logic to change at runtime:
+
+just clear 
+
+self.constraints[crt_round][crt_layer]
+
+need to know which layers can merge with sbox 
+and which layers cannot merge with sbox 
+
+"""
+class TTable_Conversion:
+    
+    #may need to
+    def __init__(self, rds:List, f:Layered_Function):#list of dictionary objedts 
+        for r in range(len(rds)):
+            layers = rds[r]
+            nrr = [obj["name"] for obj in layers]    
+            if "SboxLayer" in nrr and "MatrixLayer" in nrr:
+                sidx = nrr.index("SboxLayer")
+                midx = nrr.index("MatrixLayer")
+                perm = list(range(16))
+                if "PermutationLayer" in nrr:
+                    pidx = nrr.index("PermutationLayer")
+                    perm = layers[pidx]["args"]["permutation"]
+                if sidx < midx:
+                    sboxTable = layers[sidx]["args"]["sbox_operator"].table
+                    mat = layers[midx]["args"]["mat"]
+                    mat=flatten(mat)
+                    mc_id = layers[midx]["args"]["indexes_list"]
+                    mc_id = flatten(mc_id)
+                    crt_layer = nrr.index("SboxLayer")
+                    param =self.create_ttable_layer_arguments(crt_layer, "TTABLE_SBOX",sboxTable,perm,mc_id,r,mat, f)
+                    #for now just clear all alyers till midx inclusive
+                    for lyr in range(sidx, midx+1):f.constraints[r][lyr] = []
+                    Layered_Function_Ttable.MatrixLayer(**param)
+                    for lyr in range(sidx+1, midx+1):
+                        f.AddIdentityLayer("ID", r, lyr)
+                    
+
+    def create_ttable_layer_arguments(self,crt_layer, table_name, sboxTable,perm,mc_id,crt_round, mat, obj:Layered_Function):
+        param = {
+            "self":obj,
+            "name": table_name,
+            "crt_round": crt_round,
+            "crt_layer": crt_layer,
+            "mc": mat,
+            "sbox": sboxTable,
+            "table_name":table_name,
+            "ttable_operator": TTable,
+            "idxs": permute(perm,mc_id),
+            "oidxs": mc_id
+        }
+        return param 
+
 # function that generates the implementation of the primitive
-def generate_implementation(my_prim, filename, language = 'python', unroll = False):  
+def generate_implementation(my_prim, filename, language = 'python', unroll = False, is_ttable=True):  
     
     nbr_rounds = my_prim.nbr_rounds
     
@@ -55,6 +114,17 @@ def generate_implementation(my_prim, filename, language = 'python', unroll = Fal
         nbr_rounds_table = [my_prim.functions[s].nbr_rounds for s in my_prim.functions]
         nbr_layers_table = [my_prim.functions[s].nbr_layers for s in my_prim.functions]
         constraints_table = [my_prim.functions[s].constraints for s in my_prim.functions]
+        if is_ttable:
+            perm_layer:Layered_Function = my_prim.functions["PERMUTATION"]
+            rds = [[] for _ in range(nbr_rounds +1 )]
+            for obj in perm_layer._functions_called:
+                crt_round = obj["args"]["crt_round"]
+                rds[crt_round].append(obj)
+            #now compress new view the naems being called 
+            ttcon = TTable_Conversion(rds, perm_layer)
+
+                
+
         for i in range(len(my_prim.functions)):
            for r in range(1,nbr_rounds_table[i]+1):
                for l in range(nbr_layers_table[i]+1):
@@ -121,7 +191,8 @@ def generate_implementation(my_prim, filename, language = 'python', unroll = Fal
                         if r <= my_prim.functions[s].nbr_rounds:
                             for l in range(my_prim.functions[s].nbr_layers+1):                        
                                 for cons in my_prim.functions[s].constraints[r][l]:
-                                    for line in cons.generate_implementation("python", unroll=True): myfile.write("\t" + line + "\n")      
+                                    for line in cons.generate_implementation("python", unroll=True): 
+                                        myfile.write("\t" + line + "\n")      
                             myfile.write("\n")
             else: 
                 myfile.write("\t# Round function \n")
