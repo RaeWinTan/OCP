@@ -422,7 +422,7 @@ def generate_implementation(my_prim, filename, language = 'python', unroll = Fal
 
 
 def test_implementation_python(cipher, cipher_name, input, output):
-    print(f"****************TEST PYTHON IMPLEMENTATION of {cipher_name}****************")
+    print(f"\n****************TEST PYTHON IMPLEMENTATION of {cipher_name}****************")
     
     # Check if Python implementation file exists
     py_file = f"files/{cipher_name}.py"
@@ -462,7 +462,7 @@ def test_implementation_python(cipher, cipher_name, input, output):
 
 
 def test_implementation_c(cipher, cipher_name, input, output):
-    print(f"****************TEST C IMPLEMENTATION of {cipher_name}****************")
+    print(f"\n****************TEST C IMPLEMENTATION of {cipher_name}****************")
     
     # Check if C compiler is available
     compiler_available, compiler = is_c_compiler_available()
@@ -526,7 +526,7 @@ def test_implementation_c(cipher, cipher_name, input, output):
         return False
 
 def test_implementation_verilog(cipher, cipher_name, input, output):
-    print(f"****************TEST VERILOG IMPLEMENTATION of {cipher_name}****************")
+    print(f"\n****************TEST VERILOG IMPLEMENTATION of {cipher_name}****************")
 
     # Check if Verilog compiler is available
     compiler_available, compiler = is_verilog_compiler_available()
@@ -554,7 +554,7 @@ def test_implementation_verilog(cipher, cipher_name, input, output):
     return None
 
 def test_implementation_rust(cipher, cipher_name, input, output):
-    print(f"****************TEST RUST IMPLEMENTATION of {cipher_name}****************")
+    print(f"\n****************TEST RUST IMPLEMENTATION of {cipher_name}****************")
     
     # Check if Rust compiler is available
     if not is_rust_compiler_available():
