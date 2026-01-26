@@ -137,11 +137,11 @@ class AES_block_cipher(Block_cipher):
 
             # Internal permutation
             for i in range(1,nbr_rounds):
-                S.AddRoundKeyLayer("ARK", i, 0, XOR, SK, mask=[1 for i in range(16)])  # AddRoundKey layer
-                S.SboxLayer("SB", i, 1, AES_Sbox) # Sbox layer
-                S.PermutationLayer("SR", i, 2, [0,5,10,15, 4,9,14,3, 8,13,2,7, 12,1,6,11]) # Shiftrows layer
+                S.AddRoundKeyLayer("ARK", i, 1, XOR, SK, mask=[1 for i in range(16)])  # AddRoundKey layer
+                S.SboxLayer("SB", i, 0, AES_Sbox) # Sbox layer
+                S.PermutationLayer("SR", i, 3, [0,5,10,15, 4,9,14,3, 8,13,2,7, 12,1,6,11]) # Shiftrows layer
                 if i != (nbr_rounds-1):
-                    S.MatrixLayer("MC", i, 3, matrix, matrix_index, "0x1B")  # Mixcolumns layer
+                    S.MatrixLayer("MC", i, 2, matrix, matrix_index, "0x1B")  # Mixcolumns layer
                 else: # In the final round, MixColumn is omitted
                     S.AddIdentityLayer("ID", i, 3) # Identity layer
             S.AddRoundKeyLayer("ARK", nbr_rounds, 0, XOR, SK, mask=[1 for i in range(16)])  # AddRoundKey layer
