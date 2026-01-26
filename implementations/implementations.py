@@ -56,6 +56,12 @@ self.constraints[crt_round][crt_layer]
 need to know which layers can merge with sbox 
 and which layers cannot merge with sbox 
 
+sboxlayer
+addconst 
+add round
+perm  (applied to all guys matrix and up if got any guys that were not considered
+then for now assume above matrix only one perm, order does not mater for thos layers in in question) 
+matrix 
 """
 class TTable_Conversion:
     
@@ -64,10 +70,15 @@ class TTable_Conversion:
         for r in range(len(rds)):
             layers = rds[r]
             nrr = [obj["name"] for obj in layers]    
+            # based on constraints the determine what layer was used
+            # 
+            # 
             if "SboxLayer" in nrr and "MatrixLayer" in nrr:
                 sidx = nrr.index("SboxLayer")
                 midx = nrr.index("MatrixLayer")
                 perm = list(range(16))
+                #find layere manlysed 
+                #
                 if "PermutationLayer" in nrr:
                     pidx = nrr.index("PermutationLayer")
                     perm = layers[pidx]["args"]["permutation"]
@@ -78,15 +89,21 @@ class TTable_Conversion:
                     mc_id = layers[midx]["args"]["indexes_list"]
                     mc_id = flatten(mc_id)
                     crt_layer = nrr.index("SboxLayer")
-                    param =self.create_ttable_layer_arguments(crt_layer, "TTABLE_SBOX",sboxTable,perm,mc_id,r,mat, f)
+                    param =self.create_ttable_layer_arguments_mc(crt_layer, "TTABLE_SBOX",sboxTable,perm,mc_id,r,mat, f)
                     #for now just clear all alyers till midx inclusive
-                    for lyr in range(sidx, midx+1):f.constraints[r][lyr] = []
+                    for lyr in range(sidx, midx+1):f.constraints[r][lyr] = []#dont do this
                     Layered_Function_Ttable.MatrixLayer(**param)
                     for lyr in range(sidx+1, midx+1):
                         f.AddIdentityLayer("ID", r, lyr)
+    def supported_layers(self):
+        #the AddconstLayer and addround key layer is the that requires the conversion
+        return ["SboxLayer", "AddConstantLayer", "AddRoundKeyLayer"]
                     
-
-    def create_ttable_layer_arguments(self,crt_layer, table_name, sboxTable,perm,mc_id,crt_round, mat, obj:Layered_Function):
+    def create_ttable_layer_arguments_ac(self):
+        pass 
+    def create_ttable_layer_arguments_ark(self):
+        pass 
+    def create_ttable_layer_arguments_mc(self,crt_layer, table_name, sboxTable,perm,mc_id,crt_round, mat, obj:Layered_Function):
         param = {
             "self":obj,
             "name": table_name,
@@ -102,7 +119,7 @@ class TTable_Conversion:
         return param 
 
 # function that generates the implementation of the primitive
-def generate_implementation(my_prim, filename, language = 'python', unroll = False, is_ttable=True):  
+def generate_implementation(my_prim, filename, language = 'python', unroll = False, is_ttable=False):  
     
     nbr_rounds = my_prim.nbr_rounds
     

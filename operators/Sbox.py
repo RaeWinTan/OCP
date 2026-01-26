@@ -609,7 +609,13 @@ class TTable(Sbox):
         else:
             raise Exception("TO BE DONE LATER")
         return model_list    
+    """
+    based on the layer, the implementaiton wil lbe a littple different 
+    some time return input ^ tlu[somevalue]
 
+    so have matrixLayer, adconst, addround
+    
+    """
     def generate_implementation(self, implementation_type='python', unroll=False):
         #differ greatly from parent class here we enforce strictly 2d array in inputs
         #we will be taking in a 2d list of vinput
