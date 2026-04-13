@@ -43,7 +43,7 @@ def get_var_def_c(word_bitsize):
     else: return 'uint128_t'
 
 # function that generates the implementation of the primitive
-def generate_implementation(my_prim, filename, language = 'python', unroll = False, ttable=False):  
+def generate_implementation(my_prim, filename, language = 'python', unroll = False, ttable=False, bench_mark=False):  
     
     nbr_rounds = my_prim.nbr_rounds
     
@@ -239,25 +239,92 @@ def generate_implementation(my_prim, filename, language = 'python', unroll = Fal
                  myfile.write("\n")
                      
              myfile.write("} \n")
-             
-             myfile.write("\n// test implementation\n")
-             myfile.write("int main() {\n")
-             for my_input in my_prim.inputs: myfile.write("\t" + get_var_def_c(my_prim.inputs[my_input][0].bitsize) + " " + my_input + "[" + str(len(my_prim.inputs[my_input])) + "] = {" + ", ".join(["0x0"]*len(my_prim.inputs[my_input])) + "}; \n") 
-             for my_output in my_prim.outputs: myfile.write("\t" + get_var_def_c(my_prim.outputs[my_output][0].bitsize) + " " + my_output + "[" + str(len(my_prim.outputs[my_output])) + "] = {" + ", ".join(["0x0"]*len(my_prim.outputs[my_output])) + "}; \n") 
-             myfile.write("\t" + my_prim.name + "(" + ", ".join(my_prim.inputs) + ", " + ", ".join(my_prim.outputs) + ");\n")
-             for my_input in my_prim.inputs: 
-                 myfile.write('\tprintf("' + my_input + ': ");') 
-                 if my_prim.inputs[my_input][0].bitsize <= 32: 
-                    myfile.write('\tfor (int i=0;i<' + str(len(my_prim.inputs[my_input])) + ';i++){ printf("0x%x, ", ' + my_input + '[i]);} printf("\\n");\n')                       
-                 else: 
-                    myfile.write('\tfor (int i=0;i<' + str(len(my_prim.inputs[my_input])) + ';i++){ printf("0x%llx, ", ' + my_input + '[i]);} printf("\\n");\n')                    
-             for my_output in my_prim.outputs: 
-                 myfile.write('\tprintf("' + my_output + ': ");') 
-                 if my_prim.inputs[my_input][0].bitsize <= 32: 
-                    myfile.write('\tfor (int i=0;i<' + str(len(my_prim.outputs[my_output])) + ';i++){ printf("0x%x, ", ' + my_output + '[i]);} printf("\\n");\n')     
-                 else:
-                    myfile.write('\tfor (int i=0;i<' + str(len(my_prim.outputs[my_output])) + ';i++){ printf("0x%llx, ", ' + my_output + '[i]);} printf("\\n");\n')     
-             myfile.write('}\n')
+             if not bench_mark:
+                myfile.write("\n// test implementation\n")
+                myfile.write("int main() {\n")
+                for my_input in my_prim.inputs: myfile.write("\t" + get_var_def_c(my_prim.inputs[my_input][0].bitsize) + " " + my_input + "[" + str(len(my_prim.inputs[my_input])) + "] = {" + ", ".join(["0x0"]*len(my_prim.inputs[my_input])) + "}; \n") 
+                for my_output in my_prim.outputs: myfile.write("\t" + get_var_def_c(my_prim.outputs[my_output][0].bitsize) + " " + my_output + "[" + str(len(my_prim.outputs[my_output])) + "] = {" + ", ".join(["0x0"]*len(my_prim.outputs[my_output])) + "}; \n") 
+                myfile.write("\t" + my_prim.name + "(" + ", ".join(my_prim.inputs) + ", " + ", ".join(my_prim.outputs) + ");\n")
+                for my_input in my_prim.inputs: 
+                    myfile.write('\tprintf("' + my_input + ': ");') 
+                    if my_prim.inputs[my_input][0].bitsize <= 32: 
+                        myfile.write('\tfor (int i=0;i<' + str(len(my_prim.inputs[my_input])) + ';i++){ printf("0x%x, ", ' + my_input + '[i]);} printf("\\n");\n')                       
+                    else: 
+                        myfile.write('\tfor (int i=0;i<' + str(len(my_prim.inputs[my_input])) + ';i++){ printf("0x%llx, ", ' + my_input + '[i]);} printf("\\n");\n')                    
+                for my_output in my_prim.outputs: 
+                    myfile.write('\tprintf("' + my_output + ': ");') 
+                    if my_prim.inputs[my_input][0].bitsize <= 32: 
+                        myfile.write('\tfor (int i=0;i<' + str(len(my_prim.outputs[my_output])) + ';i++){ printf("0x%x, ", ' + my_output + '[i]);} printf("\\n");\n')     
+                    else:
+                        myfile.write('\tfor (int i=0;i<' + str(len(my_prim.outputs[my_output])) + ';i++){ printf("0x%llx, ", ' + my_output + '[i]);} printf("\\n");\n')     
+                myfile.write('}\n')
+             else:
+                myfile.write("\n// bench marking \n")
+                myfile.write("#include <sys/syscall.h>\n")
+                myfile.write("#include <sys/ioctl.h>\n")
+                myfile.write("#include <linux/perf_event.h>\n")
+                myfile.write("#include <unistd.h>\n")
+                myfile.write("#include <string.h>\n")
+                myfile.write("\n")
+                myfile.write("static int open_counter(uint32_t type, uint64_t config) {\n")
+                myfile.write("    struct perf_event_attr attr;\n")
+                myfile.write("    memset(&attr, 0, sizeof(attr));\n")
+                myfile.write("    attr.type = type;\n")
+                myfile.write("    attr.config = config;\n")
+                myfile.write("    attr.disabled = 1;\n")
+                myfile.write("    attr.exclude_kernel = 1;\n")
+                myfile.write("    return syscall(__NR_perf_event_open, &attr, 0, -1, -1, 0);\n")
+                myfile.write("}\n")
+                myfile.write("\n")
+                myfile.write("int main() {\n")
+                for my_input in my_prim.inputs: myfile.write("\t" + get_var_def_c(my_prim.inputs[my_input][0].bitsize) + " " + my_input + "[" + str(len(my_prim.inputs[my_input])) + "] = {" + ", ".join(["0x0"]*len(my_prim.inputs[my_input])) + "}; \n") 
+                for my_output in my_prim.outputs: myfile.write("\t" + get_var_def_c(my_prim.outputs[my_output][0].bitsize) + " " + my_output + "[" + str(len(my_prim.outputs[my_output])) + "] = {" + ", ".join(["0x0"]*len(my_prim.outputs[my_output])) + "}; \n") 
+                myfile.write("    uint8_t *pt = plaintext;\n")
+                myfile.write("    uint8_t *ct = ciphertext;\n")
+                myfile.write("\n")
+                myfile.write("    int fd_cycles = open_counter(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES);\n")
+                myfile.write("    int fd_l1_hit = open_counter(PERF_TYPE_HW_CACHE,\n")
+                myfile.write("                           PERF_COUNT_HW_CACHE_L1D |\n")
+                myfile.write("                           (PERF_COUNT_HW_CACHE_OP_READ << 8) |\n")
+                myfile.write("                           (PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16));\n")
+                myfile.write("    int fd_l1_miss = open_counter(PERF_TYPE_HW_CACHE,\n")
+                myfile.write("                           PERF_COUNT_HW_CACHE_L1D |\n")
+                myfile.write("                           (PERF_COUNT_HW_CACHE_OP_READ << 8) |\n")
+                myfile.write("                           (PERF_COUNT_HW_CACHE_RESULT_MISS << 16));\n")
+                myfile.write("\n")
+                myfile.write("//warming cache\n")
+                myfile.write("\tfor (int i =0; i < 1000; i++){")
+                myfile.write("\t\t" + my_prim.name + "(pt, key,ct)" + ";\n")
+                myfile.write("        uint8_t *tmp = pt;\n")
+                myfile.write("        pt = ct;\n")
+                myfile.write("        ct = tmp;\n")
+                myfile.write("    }\n")
+                myfile.write("    int fds[] = {fd_cycles, fd_l1_hit, fd_l1_miss};\n")
+                myfile.write("    for (int i = 0; i < 3; i++) {\n")
+                myfile.write("        ioctl(fds[i], PERF_EVENT_IOC_RESET, 0);\n")
+                myfile.write("        ioctl(fds[i], PERF_EVENT_IOC_ENABLE, 0);\n")
+                myfile.write("    }\n")
+                myfile.write("\tfor (int i =0; i < 10000; i++){")
+                myfile.write("\t\t" + my_prim.name + "(pt, key,ct)" + ";\n")
+                myfile.write("        uint8_t *tmp = pt;\n")
+                myfile.write("        pt = ct;\n")
+                myfile.write("        ct = tmp;\n")
+                myfile.write("    }\n")
+                myfile.write("    for (int i = 0; i < 3; i++)\n")
+                myfile.write("        ioctl(fds[i], PERF_EVENT_IOC_DISABLE, 0);\n")
+                myfile.write("\n")
+                myfile.write("    uint64_t cycles, l1_hit, l1_miss;\n")
+                myfile.write("    read(fd_cycles,  &cycles,  sizeof(cycles));\n")
+                myfile.write("    read(fd_l1_hit,  &l1_hit,  sizeof(l1_hit));\n")
+                myfile.write("    read(fd_l1_miss, &l1_miss, sizeof(l1_miss));\n")
+                myfile.write("\n")
+                myfile.write("    printf(\"%llu %llu %llu\", cycles, l1_hit, l1_miss);\n")
+                myfile.write("    close(fd_cycles); close(fd_l1_hit); close(fd_l1_miss);\n")
+                myfile.write("    volatile uint8_t sink = 0; for (int i = 0; i < 16; i++) sink ^= pt[i];\n")
+                myfile.write("    return 0;\n")
+                
+                
+                myfile.write('}\n')
 
 
         elif language == 'verilog':

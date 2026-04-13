@@ -81,14 +81,21 @@ def test_ttable_imp(cipher):
     test_python_unrolled_ttable_imp(cipher)
     test_c_unrolled_ttable_imp(cipher)
 
+def bench_marking_c_imp(cipher,ttable):
+    if ttable:
+        imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}_ttable.c", "c", True, ttable, True)
+    else:
+        imp.generate_implementation(cipher, FILES_DIR / f"{cipher.name}.c", "c", True, ttable, True)
 def test_all_implementations(cipher): # Generate all implementations
     #test_python_imp(cipher)
-    test_python_unrolled_imp(cipher)
+    #test_python_unrolled_imp(cipher)
     #test_c_imp(cipher)
-    test_c_unrolled_imp(cipher)
+    #test_c_unrolled_imp(cipher)
     #test_verilog_imp(cipher)
     #test_verilog_unrolled_imp(cipher)
-    test_ttable_imp(cipher)
+    #test_ttable_imp(cipher)
+    bench_marking_c_imp(cipher,True)
+    bench_marking_c_imp(cipher,False)
 
 
 
@@ -169,8 +176,8 @@ if __name__ == "__main__":
     test_all_implementations(cipher)
     cipher = skinny.SKINNY_BLOCKCIPHER(version=[128,256])
     test_all_implementations(cipher)
-    cipher = skinny.SKINNY_BLOCKCIPHER(version=[128,384])
-    test_all_implementations(cipher)
+    #cipher = skinny.SKINNY_BLOCKCIPHER(version=[128,384])
+    #test_all_implementations(cipher)
 
     import primitives.led as led
     cipher = led.LED_BLOCKCIPHER(version=[64,64])

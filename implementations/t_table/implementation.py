@@ -15,7 +15,7 @@ class TTable:
         if implementation_type == 'python': 
             return str(self.table_name) + ' = ' + str(self.table)
         elif implementation_type == 'c': 
-            return "int "+ str(self.table_name)+f"[{len(self.table)}][{len(self.table[0])}]" + " = " + str([[c for c in r] for r in self.table]).replace('[', '{').replace(']', '}')+";"
+            return "static const uint32_t "+ str(self.table_name)+f"[{len(self.table)}][{len(self.table[0])}] __attribute__((aligned(64)))" + " = " + str([[c for c in r] for r in self.table]).replace('[', '{').replace(']', '}')+";"
         else: return None 
     
     def generate_implementation(self, input_vars, output_vars,name_list, implementation_type='python', unroll=True):
